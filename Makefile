@@ -1,5 +1,5 @@
 IMAGE_NAME ?= notq-python
-REGISTRY ?= ghcr.io/notq-Project
+REGISTRY ?= ghcr.io/notq-project
 
 TAG ?= latest
 IMAGE := $(IMAGE_NAME):$(TAG)
