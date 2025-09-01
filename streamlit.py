@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 # Load environment variables (expects API_URL in .env or environment)
 load_dotenv()
-DEFAULT_API_URL = os.getenv("API_URL", "http://localhost:8000").rstrip("/")
+DEFAULT_API_URL = os.getenv("API_URL", "https://notq-python-adb7dsexamdkh0gt.germanywestcentral-01.azurewebsites.net").rstrip("/")
 
 # Voice options list (you can extend this later)
 VOICE_OPTIONS = [
@@ -27,10 +27,10 @@ st.set_page_config(page_title="notq-ai API Tester", layout="wide")
 
 # Sidebar: API base URL selection
 st.sidebar.header("Settings")
-api_url = st.sidebar.text_input("API base URL", value=DEFAULT_API_URL, help="Example: http://localhost:8000")
+api_url = st.sidebar.text_input("API base URL", value=DEFAULT_API_URL, help="Example: https://notq-python-adb7dsexamdkh0gt.germanywestcentral-01.azurewebsites.net")
 if not api_url:
-    st.sidebar.warning("API base URL is required. Using default http://localhost:8000")
-    api_url = "http://localhost:8000"
+    st.sidebar.warning("API base URL is required. Using default https://notq-python-adb7dsexamdkh0gt.germanywestcentral-01.azurewebsites.net")
+    api_url = "https://notq-python-adb7dsexamdkh0gt.germanywestcentral-01.azurewebsites.net"
 api_url = api_url.rstrip("/")
 
 st.sidebar.markdown("---")
