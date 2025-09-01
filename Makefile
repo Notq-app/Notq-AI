@@ -1,5 +1,5 @@
 IMAGE_NAME ?= notq-python
-REGISTRY ?= ghcr.io/eslam-reda-div
+REGISTRY ?= ghcr.io/notq-Project
 
 TAG ?= latest
 IMAGE := $(IMAGE_NAME):$(TAG)
