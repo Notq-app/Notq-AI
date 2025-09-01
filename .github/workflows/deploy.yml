@@ -57,4 +57,4 @@ jobs:
         with:
           azcliversion: 2.30.0
           inlineScript: |
-            az webapp restart --name movment --resource-group Movment-eg
+            az webapp restart --name notq-python --resource-group Notq
