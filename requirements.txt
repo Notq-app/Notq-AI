@@ -1,0 +1,13 @@
+azure-cognitiveservices-speech
+python-dotenv
+jieba
+zhon
+fastapi
+uvicorn
+python-multipart
+streamlit
+langchain
+langchain-openai
+langchain-core
+openai
+langchain-google-genai
