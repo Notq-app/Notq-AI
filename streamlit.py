@@ -11,16 +11,34 @@ from dotenv import load_dotenv
 load_dotenv()
 DEFAULT_API_URL = os.getenv("API_URL", "https://notq-python-adb7dsexamdkh0gt.germanywestcentral-01.azurewebsites.net").rstrip("/")
 
-# Voice options list (you can extend this later)
+# Voice options for Gemini TTS
 VOICE_OPTIONS = [
-    "en-US-AndrewMultilingualNeural",  # default
-    "en-US-JennyNeural",
-    "en-US-GuyNeural",
-    "ar-EG-SalmaNeural",
-    "ar-SA-HamedNeural",
-    "zh-CN-XiaoxiaoNeural",
-    "fr-FR-DeniseNeural",
-    "es-ES-ElviraNeural",
+    "zephyr",
+    "puck",
+    "charon",
+    "kore",
+    "fenrir",
+    "leda",
+    "orus",
+    "aoede",
+    "callirrhoe",
+    "autonoe",
+    "enceladus",
+    "iapetus",
+    "umbriel",
+    "algieba",
+    "despina",
+    "erinome",
+    "algenib",
+    "rasalgethi",
+    "laomedeia",
+    "achernar",
+    "alnilam",
+    "schedar",
+    "gacrux",
+    "pulcherrima",
+    "achird",
+    "zubenelgenubi",
 ]
 
 st.set_page_config(page_title="notq-ai API Tester", layout="wide")
@@ -138,7 +156,7 @@ elif page == "Word Level Measurement":
 # Text to Speech Page
 elif page == "Text to Speech":
     st.title("/text_to_speach")
-    st.write("Enter text, choose a voice and language. The generated audio will appear below.")
+    st.write("Enter text and choose a voice. The generated audio will appear below.")
 
     # Full-width inputs
     text = st.text_area("Text", height=120, placeholder="Type a short sentence or a word...")
@@ -146,9 +164,8 @@ elif page == "Text to Speech":
         "Voice",
         options=VOICE_OPTIONS,
         index=0,
-        help="Select an Azure neural voice. Default is en-US-AndrewMultilingualNeural.",
+        help="Select a Gemini TTS prebuilt voice. Default is zephyr.",
     )
-    language = st.text_input("Language (locale)", value="en-US", key="tts_lang")
 
     if st.button("Synthesize"):
         if not text.strip():
@@ -157,7 +174,6 @@ elif page == "Text to Speech":
             data = {
                 "text": text,
                 "voice_name": voice_name,
-                "language": language,
             }
             with st.spinner("Calling TTS..."):
                 resp = post_form(urljoin(api_url + "/", "text_to_speach"), data)
@@ -185,7 +201,13 @@ elif page == "Text to Speech":
                         try:
                             r2 = requests.get(download_url, timeout=60)
                             if r2.ok:
-                                st.audio(r2.content, format="audio/wav")
+                                # Try to infer format from file extension
+                                fmt = None
+                                if "." in download_url:
+                                    ext = download_url.rsplit(".", 1)[-1].lower()
+                                    if ext in ("wav", "mp3", "ogg", "webm", "m4a"):
+                                        fmt = f"audio/{'x-wav' if ext=='wav' else ext}"
+                                st.audio(r2.content, format=fmt)
                             else:
                                 st.info("Could not fetch audio for inline play; use the download link above.")
                         except Exception:

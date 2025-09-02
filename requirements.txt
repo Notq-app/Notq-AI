@@ -11,3 +11,4 @@ langchain-openai
 langchain-core
 openai
 langchain-google-genai
+google-genai

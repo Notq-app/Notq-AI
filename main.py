@@ -38,19 +38,17 @@ def text_to_speach_endpoint(
     request: Request,
     text: str = Form(...),
     voice_name: str = Form(...),
-    language: str = Form("en-US")
 ):
-    filename = f"tts_{uuid.uuid4().hex}.wav"
-    output_path = os.path.join(PUBLIC_DIR, filename)
-    result = text_to_speech(text=text, voice_name=voice_name, output_path=output_path, language=language)
-    if result.get("success") and os.path.exists(output_path):
+    result = text_to_speech(text=text, voice_name=voice_name, output_dir=PUBLIC_DIR)
+    if result.get("success") and result.get("filename"):
+        filename = result["filename"]
         try:
             download_url = str(request.url_for("public", path=filename))
         except Exception:
             download_url = f"/public/{filename}"
         return JSONResponse(content={
             "success": True,
-            "message": "Speech synthesized successfully.",
+            "message": result.get("message", "Speech synthesized successfully."),
             "filename": filename,
             "download_url": download_url,
         })
