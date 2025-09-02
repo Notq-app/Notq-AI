@@ -107,7 +107,7 @@ elif page == "Level Measurement":
 
 # Word Level Measurement Page
 elif page == "Word Level Measurement":
-    st.title("/word_level_measurement")
+    st.title("/level_measurement")
     st.write("Upload an audio file, enter the reference text and language.")
     audio = st.file_uploader("Audio file (wav recommended)", type=["wav", "mp3", "m4a", "ogg", "flac", "webm"], key="wlm_audio")
     reference_text = st.text_area("Reference Text", height=120, key="wlm_text")
@@ -125,7 +125,7 @@ elif page == "Word Level Measurement":
                 "language": language,
             }
             with st.spinner("Submitting request..."):
-                resp = post_multipart(urljoin(api_url + "/", "word_level_measurement"), files, data)
+                resp = post_multipart(urljoin(api_url + "/", "level_measurement"), files, data)
             if not resp:
                 st.error("Request failed (network error).")
             else:

@@ -98,19 +98,6 @@ Invoke-RestMethod -Method Post -Uri http://localhost:8000/level_measurement `
   -Form @{ audio_file=Get-Item .\sample.wav; reference_text="hello world"; language="en-US" }
 ```
 
-### POST /word_level_measurement
-
-- Content-Type: multipart/form-data
-- Fields: same as `/level_measurement`
-- Returns: JSON with word-level details.
-
-Example (PowerShell):
-
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/word_level_measurement `
-  -Form @{ audio_file=Get-Item .\sample.wav; reference_text="hello world"; language="en-US" }
-```
-
 ### POST /text_to_speach
 
 - Content-Type: application/x-www-form-urlencoded (form fields)

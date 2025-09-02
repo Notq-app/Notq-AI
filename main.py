@@ -33,19 +33,6 @@ def level_measurement_endpoint(
         result = level_measurement(tmp_audio_path, reference_text, language)
     return JSONResponse(content=result)
 
-@app.post("/word_level_measurement")
-def word_level_measurement_endpoint(
-    audio_file: UploadFile = File(...),
-    reference_text: str = Form(...),
-    language: str = Form("en-US")
-):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        tmp_audio_path = os.path.join(tmpdirname, audio_file.filename)
-        with open(tmp_audio_path, "wb") as buffer:
-            shutil.copyfileobj(audio_file.file, buffer)
-        result = level_measurement(tmp_audio_path, reference_text, language)
-    return JSONResponse(content=result)
-
 @app.post("/text_to_speach")
 def text_to_speach_endpoint(
     request: Request,
