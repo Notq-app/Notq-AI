@@ -57,6 +57,7 @@ page = st.sidebar.radio("Endpoints", [
     "Level Measurement",
     "Word Level Measurement",
     "Text to Speech",
+    "Generate Speech Plan",
     "Generate Plan",
 ])
 
@@ -212,6 +213,145 @@ elif page == "Text to Speech":
                                 st.info("Could not fetch audio for inline play; use the download link above.")
                         except Exception:
                             st.info("Could not fetch audio for inline play; use the download link above.")
+
+# Generate Speech Plan Page
+elif page == "Generate Speech Plan":
+    st.title("/generate_speech_plan")
+    st.write("Generate a structured speech therapy plan for children with speech delays.")
+
+    # Create two columns for better layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        child_age = st.number_input(
+            "Child's Age (2-8 years)",
+            min_value=2,
+            max_value=8,
+            value=3,
+            step=1,
+            help="Age of the child in years"
+        )
+        
+        delay_level = st.selectbox(
+            "Speech Delay Level",
+            options=["slight delay", "medium delay", "severe delay"],
+            index=0,
+            help="Select the level of speech delay"
+        )
+        
+        language = st.text_input(
+            "Primary Language",
+            value="English",
+            help="Primary language for the therapy plan"
+        )
+        
+        daily_time_minutes = st.number_input(
+            "Daily Practice Time (minutes)",
+            min_value=5,
+            max_value=60,
+            value=15,
+            step=5,
+            help="Available practice time per day in minutes"
+        )
+    
+    with col2:
+        plan_duration_weeks = st.number_input(
+            "Plan Duration (weeks)",
+            min_value=1,
+            max_value=12,
+            value=4,
+            step=1,
+            help="Duration of the therapy plan in weeks"
+        )
+        
+        words_child_can_speak = st.text_area(
+            "Words Child Can Already Speak",
+            height=100,
+            placeholder="mama,dada,ball,more (comma-separated)",
+            help="List words the child can already speak, separated by commas"
+        )
+        
+        additional_info = st.text_area(
+            "Additional Information",
+            height=100,
+            placeholder="Any additional information about the child...",
+            help="Additional context about the child's condition or preferences"
+        )
+
+    if st.button("Generate Speech Therapy Plan", type="primary"):
+        # Validate inputs
+        if child_age < 2 or child_age > 8:
+            st.error("Child age must be between 2 and 8 years")
+        elif delay_level not in ["slight delay", "medium delay", "severe delay"]:
+            st.error("Please select a valid delay level")
+        elif plan_duration_weeks < 1 or plan_duration_weeks > 12:
+            st.error("Plan duration must be between 1 and 12 weeks")
+        else:
+            data = {
+                "child_age": child_age,
+                "delay_level": delay_level,
+                "language": language,
+                "daily_time_minutes": daily_time_minutes,
+                "plan_duration_weeks": plan_duration_weeks,
+                "words_child_can_speak": words_child_can_speak.strip(),
+                "additional_info": additional_info.strip()
+            }
+            
+            with st.spinner("Generating speech therapy plan..."):
+                resp = post_form(urljoin(api_url + "/", "generate_speech_plan"), data)
+            
+            if not resp:
+                st.error("Request failed (network error).")
+            else:
+                st.write("Status:", resp.status_code)
+                try:
+                    payload = resp.json()
+                except Exception:
+                    payload = None
+
+                if not payload:
+                    st.text(resp.text)
+                else:
+                    st.json(payload)
+                    if payload.get("success") and isinstance(payload.get("plan"), dict):
+                        plan = payload["plan"]
+                        st.markdown("---")
+                        st.subheader("Speech Therapy Plan Preview")
+                        
+                        # Display plan summary
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Child Age", f"{plan.get('child_age', 'N/A')} years")
+                        with col2:
+                            st.metric("Delay Level", plan.get('delay_level', 'N/A').title())
+                        with col3:
+                            st.metric("Duration", f"{plan.get('plan_duration_weeks', 'N/A')} weeks")
+                        
+                        # Display weekly plans
+                        weekly_plans = plan.get("weekly_plans", [])
+                        if isinstance(weekly_plans, list) and weekly_plans:
+                            st.subheader("Weekly Breakdown")
+                            for week_plan in weekly_plans:
+                                week_num = week_plan.get("week", "?")
+                                focus_area = week_plan.get("focus_area", "")
+                                weekly_goal = week_plan.get("weekly_goal", "")
+                                
+                                with st.expander(f"Week {week_num}: {focus_area}", expanded=False):
+                                    if weekly_goal:
+                                        st.markdown(f"**Goal:** {weekly_goal}")
+                                    
+                                    daily_plans = week_plan.get("daily_plans", [])
+                                    if isinstance(daily_plans, list) and daily_plans:
+                                        st.markdown("**Daily Practice Words:**")
+                                        for day_plan in daily_plans:
+                                            day_num = day_plan.get("day", "?")
+                                            words = day_plan.get("words", [])
+                                            notes = day_plan.get("notes", "")
+                                            
+                                            words_str = ", ".join(words) if isinstance(words, list) else str(words)
+                                            st.markdown(f"**Day {day_num}:** {words_str}")
+                                            if notes:
+                                                st.markdown(f"*Notes: {notes}*")
 
 # Generate Plan Page
 elif page == "Generate Plan":
