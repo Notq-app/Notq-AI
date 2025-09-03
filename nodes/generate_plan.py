@@ -8,36 +8,222 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
+try:
+    from googlesearch import search
+except ImportError:
+    def search(query, num_results=3):
+        print(f"Google search not available. Query was: {query}")
+        return []
 
-class PlanStep(BaseModel):
-    id: int = Field(..., description="Sequential step id starting at 1.")
-    title: str = Field(..., description="Short name of the step.")
-    description: str = Field(..., description="What to do in this step.")
-    owner: Optional[str] = Field(None, description="Responsible person or role.")
-    duration: Optional[str] = Field(None, description="Estimated duration, e.g., '2 days'.")
-    dependencies: List[int] = Field(default_factory=list, description="List of step ids this depends on.")
+class DailyWords(BaseModel):
+    day: int = Field(..., description="Day number (1-7)")
+    words: List[str] = Field(..., description="List of words to practice this day")
+    notes: Optional[str] = Field(None, description="Special notes for this day")
 
+class WeeklyPlan(BaseModel):
+    week: int = Field(..., description="Week number")
+    focus_area: str = Field(..., description="Main speech focus for this week (e.g., 'Basic sounds', 'Simple words')")
+    daily_plans: List[DailyWords] = Field(..., description="Daily word plans for the week")
+    weekly_goal: str = Field(..., description="What should be achieved by end of week")
+
+class SpeechTherapyPlan(BaseModel):
+    child_age: int = Field(..., description="Child's age in years")
+    delay_level: str = Field(..., description="Level of speech delay (slight delay, medium delay, severe delay)")
+    language: str = Field(..., description="Primary language")
+    daily_time_minutes: int = Field(..., description="Available practice time per day in minutes")
+    plan_duration_weeks: int = Field(..., description="Total plan duration in weeks")
+    
+    weekly_plans: List[WeeklyPlan] = Field(..., description="Week-by-week breakdown")
+
+class Step(BaseModel):
+    step_number: int = Field(..., description="Step number in the plan")
+    title: str = Field(..., description="Brief title of the step")
+    description: str = Field(..., description="Detailed description of the step")
+    estimated_time: str = Field(..., description="Estimated time to complete this step")
+    dependencies: Optional[List[int]] = Field(
+        default=[], description="List of step numbers that must be completed before this one"
+    )
+    resources_needed: Optional[List[str]] = Field(
+        default=[], description="List of resources or tools needed for this step"
+    )
 
 class Plan(BaseModel):
-    objective: str = Field(..., description="Primary objective of the plan.")
-    assumptions: List[str] = Field(default_factory=list)
-    constraints: List[str] = Field(default_factory=list)
-    milestones: List[str] = Field(default_factory=list)
-    steps: List[PlanStep] = Field(..., description="Ordered list of steps to execute.")
-    risks: List[str] = Field(default_factory=list)
-    mitigations: List[str] = Field(default_factory=list)
-    metrics: List[str] = Field(default_factory=list, description="How success will be measured.")
-    timeline: Optional[str] = Field(None, description="Overall timeline summary.")
-    notes: Optional[str] = Field(None)
+    title: str = Field(..., description="Title of the plan")
+    objective: str = Field(..., description="Main objective or goal of the plan")
+    overview: str = Field(..., description="Brief overview of the plan")
+    constraints: Optional[List[str]] = Field(
+        default=[], description="Constraints or limitations to consider"
+    )
+    total_estimated_time: str = Field(..., description="Total estimated time for the entire plan")
+    steps: List[Step] = Field(..., description="List of steps in the plan")
 
+def _search_speech_therapy_resources(query: str, num_results: int = 3) -> List[str]:
+    """Search for speech therapy resources and return relevant information."""
+    try:
+        search_results = []
+        for result in search(query, num_results=num_results):
+            search_results.append(result)
+        return search_results
+    except Exception as e:
+        print(f"Search failed: {e}")
+        return []
+
+def _get_age_appropriate_guidelines(age: int) -> str:
+    """Get age-appropriate speech development guidelines using Google search."""
+    try:
+        search_query = f"speech development milestones age {age} years children normal development"
+        search_results = _search_speech_therapy_resources(search_query, num_results=5)
+        
+        if search_results:
+            guidelines_text = f"Current research for age {age} speech development:\n"
+            guidelines_text += "\n".join(search_results[:3])
+            return guidelines_text
+        else:
+            basic_guidelines = {
+                2: "Age 2: Basic words, simple combinations, family understanding",
+                3: "Age 3: Vocabulary growth, short sentences, clearer speech",
+                4: "Age 4: Complex sentences, storytelling, most sounds clear",
+                5: "Age 5: Advanced grammar, abstract concepts, reading readiness",
+                6: "Age 6: Mature speech patterns, reading skills, complex communication",
+                7: "Age 7: Fluent reading, detailed narratives, advanced vocabulary",
+                8: "Age 8: Adult-like speech, complex reasoning, academic language"
+            }
+            return basic_guidelines.get(age, f"Age {age}: Advanced communication development")
+    except Exception as e:
+        print(f"Error getting guidelines for age {age}: {e}")
+        return f"Age {age}: Speech development guidelines (search unavailable)"
 
 def _get_llm(temperature: float = 0.2):
-    """Return Google Gemini via LangChain (requires GOOGLE_API_KEY)."""
+    """Return Google Gemini via LangChain (requires GEMINI_API in .env)."""
     load_dotenv()
-    if not os.getenv("GOOGLE_API_KEY"):
-        raise ValueError("Missing GOOGLE_API_KEY for Gemini.")
-    return ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=temperature)
+    
+    api_key = os.getenv("GEMINI_API") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("Missing GEMINI_API in .env for Gemini.")
+    return ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", temperature=temperature, google_api_key=api_key)
 
+def generate_speech_therapy_plan(
+    child_age: int,
+    delay_level: str,
+    language: str = "English",
+    daily_time_minutes: int = 15,
+    plan_duration_weeks: int = 4,
+    words_child_can_speak: str = "",
+    additional_info: str = ""
+):
+    """Generate a structured speech therapy plan for children with speech delays."""
+    try:
+        parser = PydanticOutputParser(pydantic_object=SpeechTherapyPlan)
+        
+        age_guidelines = _get_age_appropriate_guidelines(child_age)
+        
+        search_query = f"speech therapy {delay_level} delay age {child_age} {language}"
+        search_results = _search_speech_therapy_resources(search_query)
+        search_context = "\n".join(search_results[:3]) if search_results else "No additional resources found"
+
+        prompt = PromptTemplate(
+            template="""
+                You are a certified speech-language pathologist with 15+ years of experience working with children aged 2-8 who have speech delays.
+                
+                CRITICAL INSTRUCTIONS:
+                - Create ONLY practical, evidence-based speech therapy plans
+                - Use developmentally appropriate words for age {child_age}
+                - Adjust complexity based on "{delay_level}" severity
+                - Each day should have 3-7 words maximum (fewer for severe delays)
+                - Words must be functional and meaningful to daily life
+                - Progress should be gradual and achievable
+                
+                DELAY LEVEL GUIDELINES:
+                - Slight delay: Start with 4-6 words/day, focus on clarity and expansion
+                - Medium delay: Start with 2-4 words/day, emphasize basic communication needs
+                - Severe delay: Start with 1-2 words/day, focus on foundational sounds
+                
+                CHILD PROFILE:
+                - Age: {child_age} years old (CRITICAL: Words must match developmental stage)
+                - Speech delay level: {delay_level}
+                - Primary language: {language}
+                - Daily practice time: {daily_time_minutes} minutes
+                - Plan duration: {plan_duration_weeks} weeks
+                
+                LANGUAGE REQUIREMENTS:
+                CRITICAL: Generate the ENTIRE plan in {language} language.
+                - All word lists must be in {language}
+                - All notes must be written in {language}
+                - All weekly goals must be in {language}
+                - All focus areas must be in {language}
+                - If {language} is not English, provide words that are appropriate for {language} speaking children
+                
+                WORD SELECTION CRITERIA:
+                1. High-frequency words child hears daily (mama, more, up, go)
+                2. Functional communication needs (help, stop, yes, no)
+                3. Early developing sounds first (p, b, m, t, d, n)
+                4. Words that motivate the child (favorite foods, toys, activities)
+                
+                CRITICAL: WORDS TO SKIP
+                The child can already speak these words: {words_child_can_speak}
+                DO NOT include any of these words in the therapy plan since the child has already mastered them.
+                Focus on NEW words that build upon their current abilities.
+                
+                PROGRESSION RULES:
+                - Week 1: Establish core vocabulary foundation (excluding words child already knows)
+                - Each subsequent week: Build on previous words + add 2-3 new ones
+                - Repeat successful words across multiple days
+                - Notes should be specific and actionable for parents
+                
+                EVIDENCE-BASED CONSIDERATIONS:
+                {age_guidelines}
+                
+                RESEARCH CONTEXT:
+                {search_context}
+                
+                ADDITIONAL CHILD INFO:
+                {additional_info}
+                
+                OUTPUT REQUIREMENTS:
+                - Each daily plan must have realistic word counts for the delay level
+                - Notes must be specific, practical instructions for parents
+                - Weekly goals should be measurable and achievable
+                - Focus areas should progress logically (sounds → words → combinations)
+                - IMPORTANT: ALL text output (words, notes, goals, focus areas) must be in {language}
+                - If language is Arabic, use proper Arabic script and vocabulary
+                - If language is not English, ensure cultural appropriateness of selected words
+                
+                Generate a plan that a parent can actually implement successfully at home with their {child_age}-year-old child who has {delay_level}.
+                Remember: The entire plan must be written in {language} language.
+                
+                Schema to follow:
+                {format_instructions}
+            """,
+            partial_variables={
+                "child_age": child_age,
+                "delay_level": delay_level,
+                "language": language,
+                "daily_time_minutes": daily_time_minutes,
+                "plan_duration_weeks": plan_duration_weeks,
+                "words_child_can_speak": words_child_can_speak or "None specified",
+                "age_guidelines": age_guidelines,
+                "additional_info": additional_info,
+                "search_context": search_context,
+                "format_instructions": parser.get_format_instructions(),
+            },
+        )
+
+        llm = _get_llm(temperature=0.15)
+        chain = prompt | llm | parser
+        
+        result = chain.invoke({})
+
+        return {
+            "success": True,
+            "message": "Speech therapy plan generated successfully.",
+            "plan": result.dict()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to generate speech therapy plan: {e}",
+            "plan": None
+        }
 
 def generate_plan(
     system_prompt: str = "",
@@ -46,53 +232,77 @@ def generate_plan(
     constraints: Optional[List[str]] = None,
     steps_hint: Optional[int] = None,
 ):
-    """Generate a structured plan from a system prompt and long-form context using LangChain.
-
-    Returns a dict: { success, message, plan (parsed), raw }.
-    """
+    """Original plan generation function - kept for compatibility."""
     try:
-        parser = PydanticOutputParser(pydantic_object=Plan)
-
-        prompt = PromptTemplate(
-            template="""
-                {system_instructions}
+        if "age" in context.lower() and "speech" in context.lower():
+            age = 3  
+            delay_level = "moderate"  
+            
+            if "age" in context:
+                import re
+                age_match = re.search(r'age[:\s]*(\d+)', context.lower())
+                if age_match:
+                    age = int(age_match.group(1))
+            
+            if "slight delay" in context.lower():
+                delay_level = "slight delay"
+            elif "medium delay" in context.lower():
+                delay_level = "medium delay"
+            elif "severe delay" in context.lower():
+                delay_level = "severe delay"
                 
-                Schema instructions:
-                {format_instructions}
-                
-                Context (for grounding):
-                {context}
-                
-                Objective (if provided):
-                {objective}
+            return generate_speech_therapy_plan(
+                child_age=age,
+                delay_level=delay_level,
+                words_child_can_speak="",
+                additional_info=context
+            )
+        else:
+            parser = PydanticOutputParser(pydantic_object=Plan)
+            
+            constraints_str = ""
+            if constraints:
+                constraints_str = f"Constraints: {', '.join(constraints)}"
+            
+            steps_hint_str = ""
+            if steps_hint:
+                steps_hint_str = f"Aim for approximately {steps_hint} steps."
+            
+            prompt = PromptTemplate(
+                template="""
+                    {system_prompt}
+                    
+                    Context: {context}
+                    Objective: {objective}
+                    {constraints_str}
+                    {steps_hint_str}
+                    
+                    Create a detailed, structured plan to achieve the objective.
+                    
+                    Schema to follow:
+                    {format_instructions}
+                """,
+                partial_variables={
+                    "system_prompt": system_prompt,
+                    "context": context,
+                    "objective": objective or "Create a comprehensive plan",
+                    "constraints_str": constraints_str,
+                    "steps_hint_str": steps_hint_str,
+                    "format_instructions": parser.get_format_instructions(),
+                },
+            )
 
-                Constraints (if any):
-                {extra_constraints}
-                
-                Steps hint (if any):
-                {steps_hint}
-            """,
-            partial_variables={
-                "system_instructions": system_prompt,
-                "context": context,
-                "objective": objective,
-                "extra_constraints": "\n".join(constraints or []) or "",
-                "format_instructions": parser.get_format_instructions(),
-                "steps_hint": f"Aim for approximately {steps_hint} steps." if steps_hint else ""
-            },
-        )
+            llm = _get_llm()
+            chain = prompt | llm | parser
+            
+            result = chain.invoke({})
 
-        llm = _get_llm(temperature=0.2)
-
-        chain = prompt | llm | parser
-        
-        result = chain.invoke({})
-
-        return {
-            "success": True,
-            "message": "Plan generated successfully.",
-            "plan": result.dict(),
-        }
+            return {
+                "success": True,
+                "message": "Plan generated successfully.",
+                "plan": result.dict(),
+            }
+            
     except Exception as e:
         return {
             "success": False,
