@@ -5,8 +5,8 @@ import tempfile
 import shutil
 import os
 import uuid
-#from nodes.level_measurement import level_measurement
-#from nodes.text_to_speech import text_to_speech
+from nodes.level_measurement import level_measurement
+from nodes.text_to_speech import text_to_speech
 from nodes.generate_plan import generate_plan, generate_speech_therapy_plan
 
 app = FastAPI()
@@ -19,7 +19,7 @@ app.mount("/public", StaticFiles(directory=PUBLIC_DIR), name="public")
 def health():
     return {"status": "API is running"}
 
-"""@app.post("/level_measurement")
+@app.post("/level_measurement")
 def level_measurement_endpoint(
     audio_file: UploadFile = File(...),
     reference_text: str = Form(...),
@@ -52,7 +52,7 @@ def text_to_speach_endpoint(
             "download_url": download_url,
         })
     return JSONResponse(content=result, status_code=500)
-"""
+
 @app.post("/generate_speech_plan")
 def generate_speech_plan_endpoint(
     child_age: int = Form(..., description="Child's age (2-8 years)"),
