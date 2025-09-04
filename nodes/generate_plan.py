@@ -11,9 +11,10 @@ from langchain_core.prompts import PromptTemplate
 try:
     from googlesearch import search
 except ImportError:
-    def search(query, num_results=3):
+    def fallback_search(query, num_results=3):
         print(f"Google search not available. Query was: {query}")
         return []
+    search = fallback_search
 
 class DailyWords(BaseModel):
     day: int = Field(..., description="Day number (1-7)")
@@ -236,7 +237,7 @@ def generate_plan(
     try:
         if "age" in context.lower() and "speech" in context.lower():
             age = 3  
-            delay_level = "moderate"  
+            delay_level = "medium delay"  
             
             if "age" in context:
                 import re
