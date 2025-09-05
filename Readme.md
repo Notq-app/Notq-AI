@@ -3,7 +3,7 @@
 A FastAPI service with:
 
 - Speech utilities (level measurement, word-level measurement, Azure Text-to-Speech)
-- An AI Plan Generator using Google Gemini via LangChain
+- Speech therapy plan generation using Google Gemini via LangChain
 - A simple Streamlit UI to exercise the endpoints
 
 Static files (generated TTS WAVs) are persisted under `public/` and served at `/public`.
@@ -128,40 +128,23 @@ Response:
 }
 ```
 
+### POST /generate_speech_plan
+
+- Content-Type: application/x-www-form-urlencoded (form fields)
+- Fields:
+  - `child_age` (required): Child's age (2-8 years)
+  - `delay_level` (required): Speech delay level: "slight delay", "medium delay", or "severe delay"
+  - `language` (optional): Primary language (default: "English")
+  - `daily_time_minutes` (optional): Available practice time per day in minutes (default: 15)
+  - `plan_duration_weeks` (optional): Plan duration in weeks 1-12 (default: 4)
+  - `words_child_can_speak` (optional): Words the child can already speak (comma-separated)
+  - `additional_info` (optional): Additional information about the child
+- Returns: JSON with structured speech therapy plan including weekly breakdown and daily word lists
+
 Notes:
 
 - For very short inputs (one word), the service uses SSML and extra pauses to avoid empty WAVs.
 - Files remain in `public/`; `.dockerignore` is configured to skip committing them.
-
-### POST /generate_plan
-
-- Content-Type: application/x-www-form-urlencoded (form fields)
-- Fields:
-  - `system_prompt` (required): instructions for the planner
-  - `context` (required): long-form background grounding text
-  - `objective` (required): what to achieve
-  - `constraints` (optional): comma-separated constraints (e.g., `budget <= $10k, 2 weeks`)
-  - `steps_hint` (optional, int): suggested approximate step count
-- Returns: JSON with a structured `plan` adhering to:
-  - `objective: str`
-  - `assumptions: list[str]`
-  - `constraints: list[str]`
-  - `milestones: list[str]`
-  - `steps: list[ { id:int, title:str, description:str, owner?:str, duration?:str, dependencies:list[int] } ]`
-  - `risks: list[str]`, `mitigations: list[str]`, `metrics: list[str]`, `timeline?: str`, `notes?: str`
-
-Example (PowerShell):
-
-```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:8000/generate_plan `
-  -Body @{
-    system_prompt="You are a senior planning assistant. Output JSON per schema.";
-    context="We’re launching a small web app with login and profile.";
-    objective="Ship MVP in 2 weeks";
-    steps_hint=8;
-    constraints="budget <= $10k, use Python 3.12"
-  } -ContentType "application/x-www-form-urlencoded"
-```
 
 ---
 
@@ -171,9 +154,8 @@ Run the UI and use the sidebar to switch between pages:
 
 - Health
 - Level Measurement
-- Word Level Measurement
 - Text to Speech
-- Generate Plan (full-width fields; constraints as comma-separated)
+- Generate Speech Plan
 
 It posts to the API base URL shown in the sidebar (reads `API_URL` by default). TTS results show a download link and inline audio playback.
 
@@ -226,7 +208,7 @@ notq-ai/
   nodes/
     level_measurement.py  # Audio/text analysis (reference level)
     text_to_speech.py     # Azure TTS with robust handling for short texts
-    generate_plan.py      # LangChain + Gemini plan generator
+    generate_plan.py      # LangChain + Gemini speech therapy plan generator
   public/                 # Generated TTS WAVs (runtime)
 ```
 
