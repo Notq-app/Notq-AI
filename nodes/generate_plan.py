@@ -36,27 +36,7 @@ class SpeechTherapyPlan(BaseModel):
     
     weekly_plans: List[WeeklyPlan] = Field(..., description="Week-by-week breakdown")
 
-class Step(BaseModel):
-    step_number: int = Field(..., description="Step number in the plan")
-    title: str = Field(..., description="Brief title of the step")
-    description: str = Field(..., description="Detailed description of the step")
-    estimated_time: str = Field(..., description="Estimated time to complete this step")
-    dependencies: Optional[List[int]] = Field(
-        default=[], description="List of step numbers that must be completed before this one"
-    )
-    resources_needed: Optional[List[str]] = Field(
-        default=[], description="List of resources or tools needed for this step"
-    )
 
-class Plan(BaseModel):
-    title: str = Field(..., description="Title of the plan")
-    objective: str = Field(..., description="Main objective or goal of the plan")
-    overview: str = Field(..., description="Brief overview of the plan")
-    constraints: Optional[List[str]] = Field(
-        default=[], description="Constraints or limitations to consider"
-    )
-    total_estimated_time: str = Field(..., description="Total estimated time for the entire plan")
-    steps: List[Step] = Field(..., description="List of steps in the plan")
 
 def _search_speech_therapy_resources(query: str, num_results: int = 3) -> List[str]:
     """Search for speech therapy resources and return relevant information."""
@@ -226,87 +206,4 @@ def generate_speech_therapy_plan(
             "plan": None
         }
 
-def generate_plan(
-    system_prompt: str = "",
-    context: str = "",
-    objective: Optional[str] = None,
-    constraints: Optional[List[str]] = None,
-    steps_hint: Optional[int] = None,
-):
-    """Original plan generation function - kept for compatibility."""
-    try:
-        if "age" in context.lower() and "speech" in context.lower():
-            age = 3  
-            delay_level = "medium delay"  
-            
-            if "age" in context:
-                import re
-                age_match = re.search(r'age[:\s]*(\d+)', context.lower())
-                if age_match:
-                    age = int(age_match.group(1))
-            
-            if "slight delay" in context.lower():
-                delay_level = "slight delay"
-            elif "medium delay" in context.lower():
-                delay_level = "medium delay"
-            elif "severe delay" in context.lower():
-                delay_level = "severe delay"
-                
-            return generate_speech_therapy_plan(
-                child_age=age,
-                delay_level=delay_level,
-                words_child_can_speak="",
-                additional_info=context
-            )
-        else:
-            parser = PydanticOutputParser(pydantic_object=Plan)
-            
-            constraints_str = ""
-            if constraints:
-                constraints_str = f"Constraints: {', '.join(constraints)}"
-            
-            steps_hint_str = ""
-            if steps_hint:
-                steps_hint_str = f"Aim for approximately {steps_hint} steps."
-            
-            prompt = PromptTemplate(
-                template="""
-                    {system_prompt}
-                    
-                    Context: {context}
-                    Objective: {objective}
-                    {constraints_str}
-                    {steps_hint_str}
-                    
-                    Create a detailed, structured plan to achieve the objective.
-                    
-                    Schema to follow:
-                    {format_instructions}
-                """,
-                partial_variables={
-                    "system_prompt": system_prompt,
-                    "context": context,
-                    "objective": objective or "Create a comprehensive plan",
-                    "constraints_str": constraints_str,
-                    "steps_hint_str": steps_hint_str,
-                    "format_instructions": parser.get_format_instructions(),
-                },
-            )
 
-            llm = _get_llm()
-            chain = prompt | llm | parser
-            
-            result = chain.invoke({})
-
-            return {
-                "success": True,
-                "message": "Plan generated successfully.",
-                "plan": result.dict(),
-            }
-            
-    except Exception as e:
-        return {
-            "success": False,
-            "message": f"Failed to generate plan: {e}",
-            "plan": None,
-        }

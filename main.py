@@ -7,7 +7,7 @@ import os
 import uuid
 from nodes.level_measurement import level_measurement
 from nodes.text_to_speech import text_to_speech
-from nodes.generate_plan import generate_plan, generate_speech_therapy_plan
+from nodes.generate_plan import generate_speech_therapy_plan
 
 app = FastAPI()
 
@@ -97,41 +97,6 @@ def generate_speech_plan_endpoint(
     )
     
     status = 200 if result.get("success") else 500
-    return JSONResponse(status_code=status, content=result)
-
-@app.post("/generate_plan")
-def generate_plan_endpoint(
-    system_prompt: str = Form(...),
-    context: str = Form(...),
-    objective: str = Form(...),
-    constraints: str | None = Form(None),
-    steps_hint: int | None = Form(None),
-):
-    """Generate a structured plan using form fields like other endpoints.
-
-    Form fields:
-    - system_prompt: Optional instructions for the agent
-    - context: Required long text with details to ground the plan
-    - objective: Optional objective string
-    - constraints: Optional string; can be JSON list, newline- or comma-separated
-    - steps_hint: Optional integer suggesting approximate number of steps
-    """
-
-    constraints_list = None
-    if constraints:
-        parts = [s.strip() for s in constraints.split(",") if s.strip()]
-        constraints_list = parts if parts else None
-
-    result = generate_plan(
-        system_prompt=system_prompt,
-        context=context,
-        objective=objective,
-        constraints=constraints_list,
-        steps_hint=steps_hint,
-    )
-    
-    status = 200 if result.get("success") else 500
-    
     return JSONResponse(status_code=status, content=result)
 
 def main():
