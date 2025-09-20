@@ -1,15 +1,12 @@
-name: Deploy
+name: Deploy notq-ai to Huawei SWR
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
-  build-python:
+  build-ai:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,35 +19,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y make
 
-      - name: Step 1 - Build (Python)
+      - name: Step 1 - Build (AI)
         run: make build
 
-      - name: Step 2 - Tag (Python)
+      - name: Step 2 - Tag (AI)
         run: make tag
 
-      - name: Step 3 - Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.ACCOUNT_TOKEN }}
+      - name: Step 3 - Login to Huawei SWR
+        run: make login
 
-      - name: Step 4 - Push to GitHub Registry (Python)
+      - name: Step 4 - Push to Huawei SWR (AI)
         run: make push
-
-  webapp:
-    runs-on: ubuntu-latest
-    needs: build-python
-
-    steps:
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Restart Azure Web App
-        uses: azure/CLI@v2
-        with:
-          azcliversion: 2.30.0
-          inlineScript: |
-            az webapp restart --name notq-ai --resource-group Notq
