@@ -1,5 +1,5 @@
 IMAGE_NAME ?= notq-ai
-REGISTRY ?= ghcr.io/ieee-victoris-4-0
+REGISTRY ?= ghcr.io/Notq-app
 
 TAG ?= latest
 IMAGE := $(IMAGE_NAME):$(TAG)
