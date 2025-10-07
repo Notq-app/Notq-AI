@@ -12,3 +12,4 @@ langchain-core
 openai
 langchain-google-genai
 google-genai
+langchain-deepseek

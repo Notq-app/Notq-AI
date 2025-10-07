@@ -8,6 +8,9 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
+
+from langchain_deepseek import ChatDeepSeek
+
 try:
     from googlesearch import search
 except ImportError:
@@ -75,13 +78,20 @@ def _get_age_appropriate_guidelines(age: int) -> str:
         return f"Age {age}: Speech development guidelines (search unavailable)"
 
 def _get_llm(temperature: float = 0.2):
-    """Return Google Gemini via LangChain (requires GEMINI_API in .env)."""
+    """Return Google Gemini via LangChain (requires DEEPSEEK_API_KEY in .env)."""
     load_dotenv()
     
-    api_key = os.getenv("GEMINI_API") or os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
-        raise ValueError("Missing GEMINI_API in .env for Gemini.")
-    return ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", temperature=temperature, google_api_key=api_key)
+        raise ValueError("Missing DEEPSEEK_API_KEY in .env for DeepSeek.")
+
+    llm = ChatDeepSeek(
+        model="deepseek-chat",
+        temperature=temperature,
+        api_key=api_key,
+    )
+    return llm
+    # return ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", temperature=temperature, google_api_key=api_key)
 
 def generate_speech_therapy_plan(
     child_age: int,
