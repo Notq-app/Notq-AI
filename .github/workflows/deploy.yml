@@ -38,19 +38,32 @@ jobs:
       - name: Step 4 - Push to GitHub Registry (Python)
         run: make push
 
-  webapp:
+  main-server:
     runs-on: ubuntu-latest
     needs: build-python
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Deploy with Dcoker Compose
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.SERVER }}
+        username: ${{ secrets.SERVER_USER }}
+        password: ${{ secrets.SERVER_PASSWORD }}
+        script: |
+          echo ${{ secrets.ACCOUNT_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Restart Azure Web App
-        uses: azure/CLI@v2
-        with:
-          azcliversion: 2.30.0
-          inlineScript: |
-            az webapp restart --name notq-ai --resource-group Notq
+          docker pull ghcr.io/notq-app/notq-ai:latest
+
+          docker stop my-ai-container || true
+          docker rm my-ai-container || true
+
+          docker run -d \
+            --name my-ai-container \
+            -p 80:8000 \
+            --restart unless-stopped \
+            ghcr.io/notq-app/notq-ai:latest
+
+          docker image prune -f
