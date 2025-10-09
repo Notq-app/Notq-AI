@@ -72,72 +72,105 @@ def text_to_speech(text: str, voice_name: str, output_dir: Optional[str] = None)
 
     Inputs: text, voice_name. Saves a file in public/ and returns filename.
     """
-    try:
-        load_dotenv()
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            return {"success": False, "message": "Missing GOOGLE_API_KEY in environment.", "filename": None}
+    load_dotenv()
+    
+    # List of API keys to try in sequence
+    api_keys = [
+        'AIzaSyD91gY2RwiyIZq2995x2NQsT8AxTm7MQeE',
+        'AIzaSyABCch-wYyoXcOKS-7meh39AYBabjRTbVE',
+        'AIzaSyB2Lr9N3pv7bvQpeHk9ePvIdQbDuHSoWxg',
+        'AIzaSyCljnkuVpneu4fG3KuLc7WchJ16bXJFXu8',
+        'AIzaSyDipOnvU5HHlK0CeX9MhJF-ew0JRFm-yUM',
+        'AIzaSyDvUQmWy0eE-kdj31r2SSkm8HczmJFXPds',
+    ]
+    
+    # Filter out None values
+    api_keys = [key for key in api_keys if key]
+    
+    if not api_keys:
+        return {"success": False, "message": "No API keys found in environment.", "filename": None}
+    
+    last_error = None
+    
+    # Try each API key in sequence
+    for idx, api_key in enumerate(api_keys):
+        try:
+            client = genai.Client(api_key=api_key)
 
-        client = genai.Client(api_key=api_key)
-
-        model = "gemini-2.5-flash-preview-tts"
-        contents = [
-            types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=text or "")],
-            )
-        ]
-
-        generate_content_config = types.GenerateContentConfig(
-            temperature=1,
-            response_modalities=["audio"],
-            speech_config=types.SpeechConfig(
-                voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name or "")
+            model = "gemini-2.5-flash-preview-tts"
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=text or "")],
                 )
-            ),
-        )
+            ]
 
-        # Stream and collect audio chunks
-        audio_chunks: list[bytes] = []
-        mime_type: Optional[str] = None
-        for chunk in client.models.generate_content_stream(
-            model=model, contents=contents, config=generate_content_config
-        ):
-            if not getattr(chunk, "candidates", None):
+            generate_content_config = types.GenerateContentConfig(
+                temperature=1,
+                response_modalities=["audio"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name or "")
+                    )
+                ),
+            )
+
+            # Stream and collect audio chunks
+            audio_chunks: list[bytes] = []
+            mime_type: Optional[str] = None
+            for chunk in client.models.generate_content_stream(
+                model=model, contents=contents, config=generate_content_config
+            ):
+                if not getattr(chunk, "candidates", None):
+                    continue
+                c0 = chunk.candidates[0]
+                if not getattr(c0, "content", None) or not getattr(c0.content, "parts", None):
+                    continue
+                part0 = c0.content.parts[0]
+                if getattr(part0, "inline_data", None) and getattr(part0.inline_data, "data", None):
+                    mime_type = part0.inline_data.mime_type or mime_type
+                    audio_chunks.append(part0.inline_data.data)
+
+            if not audio_chunks:
+                last_error = "No audio data received from model."
                 continue
-            c0 = chunk.candidates[0]
-            if not getattr(c0, "content", None) or not getattr(c0.content, "parts", None):
+
+            raw = b"".join(audio_chunks)
+
+            # Decide output extension and payload
+            ext = mimetypes.guess_extension(mime_type or "") or ".wav"
+            if ext.lower() == ".wav":
+                payload = raw if (mime_type and mime_type.lower().startswith("audio/wav")) else convert_to_wav(raw, mime_type or "audio/L16;rate=24000")
+            else:
+                # If it's not recognizable as WAV, save as given (e.g., .mp3)
+                payload = raw
+
+            target_dir = output_dir or _project_public_dir()
+            os.makedirs(target_dir, exist_ok=True)
+            filename = f"tts_{uuid.uuid4().hex}{ext}"
+            out_path = os.path.join(target_dir, filename)
+            with open(out_path, "wb") as f:
+                f.write(payload)
+
+            return {
+                "success": True,
+                "message": "Speech synthesized successfully.",
+                "filename": filename,
+            }
+        except Exception as e:
+            last_error = str(e)
+            # Check if this is a quota/rate limit error, if so try next key
+            error_msg = str(e).lower()
+            if "quota" in error_msg or "rate limit" in error_msg or "resource exhausted" in error_msg:
+                # Try next API key
                 continue
-            part0 = c0.content.parts[0]
-            if getattr(part0, "inline_data", None) and getattr(part0.inline_data, "data", None):
-                mime_type = part0.inline_data.mime_type or mime_type
-                audio_chunks.append(part0.inline_data.data)
-
-        if not audio_chunks:
-            return {"success": False, "message": "No audio data received from model.", "filename": None}
-
-        raw = b"".join(audio_chunks)
-
-        # Decide output extension and payload
-        ext = mimetypes.guess_extension(mime_type or "") or ".wav"
-        if ext.lower() == ".wav":
-            payload = raw if (mime_type and mime_type.lower().startswith("audio/wav")) else convert_to_wav(raw, mime_type or "audio/L16;rate=24000")
-        else:
-            # If it's not recognizable as WAV, save as given (e.g., .mp3)
-            payload = raw
-
-        target_dir = output_dir or _project_public_dir()
-        os.makedirs(target_dir, exist_ok=True)
-        filename = f"tts_{uuid.uuid4().hex}{ext}"
-        out_path = os.path.join(target_dir, filename)
-        with open(out_path, "wb") as f:
-            f.write(payload)
-
-        return {
-            "success": True,
-            "message": "Speech synthesized successfully.",
-            "filename": filename,
-        }
-    except Exception as e:
-        return {"success": False, "message": f"Error during TTS: {e}", "filename": None}
+            else:
+                # For other errors, also try next key but could be a different issue
+                continue
+    
+    # If all API keys failed, return the last error
+    return {
+        "success": False,
+        "message": f"All API keys failed. Last error: {last_error}",
+        "filename": None
+    }
