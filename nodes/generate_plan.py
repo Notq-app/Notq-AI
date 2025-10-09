@@ -86,7 +86,8 @@ def _get_llm(temperature: float = 0.2):
         raise ValueError("Missing DEEPSEEK_API_KEY in .env for DeepSeek.")
 
     llm = ChatDeepSeek(
-        model="deepseek-chat",
+        model="distill-llama-8b_46e6iu",
+        api_base="https://pangu.ap-southeast-1.myhuaweicloud.com/api/v2",
         temperature=temperature,
         api_key=api_key,
     )
